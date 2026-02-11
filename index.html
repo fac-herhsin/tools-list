@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>工具櫃清點系統 - GitHub 版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @media print { .no-print { display: none; } }
+    </style>
+</head>
+<body class="bg-gray-50 p-4">
+    <div class="max-w-3xl mx-auto">
+        <header class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold text-gray-800">工具櫃清點系統</h1>
+            <button onclick="window.print()" class="no-print bg-gray-200 px-4 py-2 rounded text-sm">列印報表</button>
+        </header>
+
+        <div id="loading" class="text-center py-10 text-gray-500">正在從試算表載入資料...</div>
+
+        <div id="main-content" class="hidden space-y-4">
+            <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+                <table class="w-full text-left">
+                    <thead class="bg-gray-50 border-b">
+                        <tr>
+                            <th class="p-3 text-sm">工具名稱</th>
+                            <th class="p-3 text-sm text-center w-20">標準</th>
+                            <th class="p-3 text-sm text-center w-24">實點</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tool-table-body" class="divide-y">
+                        <!-- 資料會顯示在這裡 -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="no-print bg-blue-50 p-4 rounded-lg text-sm text-blue-700">
+                提示：修改數量後，系統會自動同步至 Google 試算表。
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 請在這裡填入你的 Google 部署 URL ---
+        const API_URL = "https://script.google.com/macros/s/AKfycbz6x9_Gyesh2iH5RsnKJ1CQiNmhBDdl1aNOh9jaAv1-FNobfYwCj3vs-1GQ6FxHdT_ZDw/exec"; 
+
+        let inventory = [];
+
+        // 載入資料
+        async function loadData() {
+            try {
+                const response = await fetch(API_URL);
+                inventory = await response.json();
+                renderTable();
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('main-content').classList.remove('hidden');
+            } catch (err) {
+                document.getElementById('loading').innerText = "載入失敗，請檢查 API URL 設定。";
+            }
+        }
+
+        // 更新數量並傳送至試算表
+        async function updateQuantity(id, newVal) {
+            const numVal = parseInt(newVal) || 0;
+            // 立即反應在介面上
+            const row = document.getElementById(`row-${id}`);
+            const item = inventory.find(t => t.id == id);
+            if (numVal < item.standard) {
+                row.classList.add('bg-red-50');
+            } else {
+                row.classList.remove('bg-red-50');
+            }
+
+            // 傳送到 Google Sheets
+            fetch(API_URL, {
+                method: "POST",
+                body: JSON.stringify({ id: id, current: numVal })
+            });
+        }
+
+        function renderTable() {
+            const body = document.getElementById('tool-table-body');
+            body.innerHTML = inventory.map(item => `
+                <tr id="row-${item.id}" class="${item.current < item.standard ? 'bg-red-50' : ''}">
+                    <td class="p-3 font-medium text-gray-700">${item.name}</td>
+                    <td class="p-3 text-center text-gray-400 font-bold">${item.standard}</td>
+                    <td class="p-3">
+                        <input type="number" value="${item.current}" 
+                            onchange="updateQuantity(${item.id}, this.value)"
+                            class="w-full border rounded px-2 py-1 text-center font-bold text-blue-600 focus:ring-2 focus:ring-blue-500 outline-none">
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        window.onload = loadData;
+    </script>
+</body>
+</html>
