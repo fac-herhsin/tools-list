@@ -3,97 +3,191 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>工具櫃清點系統 - GitHub 版</title>
+    <title>工具櫃雲端清點系統</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        @media print { .no-print { display: none; } }
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap');
+        body { font-family: 'Noto Sans TC', sans-serif; }
+        @media print { .no-print { display: none !important; } .print-only { display: block !important; } }
+        .tab-active { background-color: #2563eb; color: white; }
     </style>
 </head>
-<body class="bg-gray-50 p-4">
-    <div class="max-w-3xl mx-auto">
-        <header class="flex justify-between items-center mb-6">
-            <h1 class="text-2xl font-bold text-gray-800">工具櫃清點系統</h1>
-            <button onclick="window.print()" class="no-print bg-gray-200 px-4 py-2 rounded text-sm">列印報表</button>
-        </header>
+<body class="bg-gray-100 min-h-screen pb-10">
 
-        <div id="loading" class="text-center py-10 text-gray-500">正在從試算表載入資料...</div>
+    <div class="max-w-5xl mx-auto px-4 py-8">
+        <!-- 標題區 -->
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-800">工具櫃雲端清點系統</h1>
+            <p class="text-gray-500 mt-2">數據即時同步至雲端資料庫</p>
+        </div>
 
-        <div id="main-content" class="hidden space-y-4">
-            <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
-                <table class="w-full text-left">
-                    <thead class="bg-gray-50 border-b">
-                        <tr>
-                            <th class="p-3 text-sm">工具名稱</th>
-                            <th class="p-3 text-sm text-center w-20">標準</th>
-                            <th class="p-3 text-sm text-center w-24">實點</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tool-table-body" class="divide-y">
-                        <!-- 資料會顯示在這裡 -->
-                    </tbody>
-                </table>
+        <!-- 分頁切換 (no-print) -->
+        <div id="tab-container" class="no-print flex justify-center space-x-2 mb-8">
+            <!-- 動態產生按鈕 -->
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- 左側清單 -->
+            <div class="lg:col-span-2 space-y-6">
+                <div class="bg-white rounded-2xl shadow-md border p-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 id="current-tab-name" class="text-xl font-bold text-gray-700">載入中...</h2>
+                        <div class="text-sm font-medium">
+                            <span class="text-green-600">齊全: <span id="stat-ok">0</span></span>
+                            <span class="text-red-500 ml-4">異常: <span id="stat-fail">0</span></span>
+                        </div>
+                    </div>
+
+                    <div id="tool-list" class="space-y-3">
+                        <!-- 工具項目 -->
+                    </div>
+
+                    <!-- 簽名與存檔 -->
+                    <div class="mt-8 pt-8 border-t space-y-4 no-print">
+                        <input type="text" id="user-name" placeholder="請輸入清點人員姓名" class="w-full p-3 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500">
+                        <div class="flex gap-3">
+                            <button onclick="saveAll()" class="flex-1 bg-green-600 text-white font-bold py-3 rounded-xl hover:bg-green-700 transition">存檔至雲端</button>
+                            <button onclick="window.print()" class="flex-1 bg-slate-800 text-white font-bold py-3 rounded-xl hover:bg-slate-900 transition">列印報表</button>
+                        </div>
+                    </div>
+                </div>
             </div>
-            
-            <div class="no-print bg-blue-50 p-4 rounded-lg text-sm text-blue-700">
-                提示：修改數量後，系統會自動同步至 Google 試算表。
+
+            <!-- 右側紀錄欄 -->
+            <div class="space-y-6 no-print">
+                <div class="bg-white rounded-2xl shadow-md border p-6">
+                    <h3 class="font-bold text-gray-700 mb-4"><i class="fa-regular fa-clock mr-2"></i>最近清點紀錄</h3>
+                    <div id="log-list" class="space-y-4 text-sm text-gray-600">
+                        <div class="text-center py-4">載入中...</div>
+                    </div>
+                </div>
+                
+                <div class="bg-blue-50 rounded-2xl p-6 border border-blue-100 text-sm text-blue-700 leading-relaxed">
+                    <p class="font-bold mb-2">提示：</p>
+                    點擊「存檔至雲端」後，所有使用者皆可在右側看到您的更新。列印時系統會自動隱藏按鈕。
+                </div>
             </div>
         </div>
     </div>
 
     <script>
-        // --- 請在這裡填入你的 Google 部署 URL ---
+        // --- 請換成你的 URL ---
         const API_URL = "https://script.google.com/macros/s/AKfycbz6x9_Gyesh2iH5RsnKJ1CQiNmhBDdl1aNOh9jaAv1-FNobfYwCj3vs-1GQ6FxHdT_ZDw/exec"; 
 
-        let inventory = [];
+        let allData = [];
+        let logs = [];
+        let currentTab = "";
 
-        // 載入資料
-        async function loadData() {
+        async function fetchData() {
             try {
-                const response = await fetch(API_URL);
-                inventory = await response.json();
-                renderTable();
-                document.getElementById('loading').classList.add('hidden');
-                document.getElementById('main-content').classList.remove('hidden');
-            } catch (err) {
-                document.getElementById('loading').innerText = "載入失敗，請檢查 API URL 設定。";
+                const res = await fetch(API_URL);
+                const json = await res.json();
+                allData = json.inventory;
+                logs = json.logs;
+                
+                const categories = [...new Set(allData.map(i => i.category))];
+                if (!currentTab) currentTab = categories[0];
+                
+                renderTabs(categories);
+                renderTools();
+                renderLogs();
+            } catch (e) {
+                alert("連線失敗，請檢查 URL");
             }
         }
 
-        // 更新數量並傳送至試算表
-        async function updateQuantity(id, newVal) {
-            const numVal = parseInt(newVal) || 0;
-            // 立即反應在介面上
-            const row = document.getElementById(`row-${id}`);
-            const item = inventory.find(t => t.id == id);
-            if (numVal < item.standard) {
-                row.classList.add('bg-red-50');
-            } else {
-                row.classList.remove('bg-red-50');
-            }
-
-            // 傳送到 Google Sheets
-            fetch(API_URL, {
-                method: "POST",
-                body: JSON.stringify({ id: id, current: numVal })
-            });
-        }
-
-        function renderTable() {
-            const body = document.getElementById('tool-table-body');
-            body.innerHTML = inventory.map(item => `
-                <tr id="row-${item.id}" class="${item.current < item.standard ? 'bg-red-50' : ''}">
-                    <td class="p-3 font-medium text-gray-700">${item.name}</td>
-                    <td class="p-3 text-center text-gray-400 font-bold">${item.standard}</td>
-                    <td class="p-3">
-                        <input type="number" value="${item.current}" 
-                            onchange="updateQuantity(${item.id}, this.value)"
-                            class="w-full border rounded px-2 py-1 text-center font-bold text-blue-600 focus:ring-2 focus:ring-blue-500 outline-none">
-                    </td>
-                </tr>
+        function renderTabs(categories) {
+            const container = document.getElementById('tab-container');
+            container.innerHTML = categories.map(cat => `
+                <button onclick="switchTab('${cat}')" class="px-8 py-2 rounded-lg font-medium transition ${currentTab === cat ? 'tab-active shadow-lg' : 'bg-white text-gray-600 hover:bg-gray-50 border'}">${cat}</button>
             `).join('');
         }
 
-        window.onload = loadData;
+        function switchTab(cat) {
+            currentTab = cat;
+            renderTabs([...new Set(allData.map(i => i.category))]);
+            renderTools();
+        }
+
+        function renderTools() {
+            const filtered = allData.filter(i => i.category === currentTab);
+            document.getElementById('current-tab-name').innerText = currentTab;
+            
+            let ok = 0, fail = 0;
+            const container = document.getElementById('tool-list');
+            container.innerHTML = filtered.map(item => {
+                const isFail = item.current < item.standard;
+                if (isFail) fail++; else ok++;
+                return `
+                    <div class="flex items-center justify-between p-4 rounded-xl border ${isFail ? 'bg-red-50 border-red-100' : 'bg-white'}">
+                        <div class="font-medium text-gray-700">${item.name}</div>
+                        <div class="flex items-center space-x-4">
+                            <span class="text-xs text-gray-400">標準:${item.standard}</span>
+                            <input type="number" value="${item.current}" 
+                                onchange="updateLocal(${item.id}, this.value)"
+                                class="w-16 border rounded-lg p-1 text-center font-bold text-blue-600 focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            document.getElementById('stat-ok').innerText = ok;
+            document.getElementById('stat-fail').innerText = fail;
+        }
+
+        function renderLogs() {
+            const container = document.getElementById('log-list');
+            if (logs.length === 0) {
+                container.innerHTML = "尚未有紀錄";
+                return;
+            }
+            container.innerHTML = logs.map(log => `
+                <div class="border-b pb-2">
+                    <div class="flex justify-between font-medium">
+                        <span>${log[2]}</span>
+                        <span class="text-xs text-gray-400">${new Date(log[0]).toLocaleDateString()}</span>
+                    </div>
+                    <div class="text-xs text-gray-400 mt-1 truncate">${log[1]}</div>
+                </div>
+            `).join('');
+        }
+
+        function updateLocal(id, val) {
+            const item = allData.find(i => i.id == id);
+            item.current = parseInt(val) || 0;
+            renderTools(); // 即時更新紅框
+        }
+
+        async function saveAll() {
+            const user = document.getElementById('user-name').value;
+            if (!user) return alert("請輸入清點人員姓名");
+
+            const btn = event.target;
+            btn.innerText = "儲存中...";
+            btn.disabled = true;
+
+            const currentItems = allData.filter(i => i.category === currentTab);
+            
+            // 1. 更新所有項目的數量
+            for (const item of currentItems) {
+                await fetch(API_URL, {
+                    method: "POST",
+                    body: JSON.stringify({ action: "update", id: item.id, current: item.current })
+                });
+            }
+
+            // 2. 寫入清點紀錄
+            await fetch(API_URL, {
+                method: "POST",
+                body: JSON.stringify({ action: "log", user: user, items: currentTab + "清點完成" })
+            });
+
+            alert("存檔成功！");
+            location.reload();
+        }
+
+        window.onload = fetchData;
     </script>
 </body>
 </html>
