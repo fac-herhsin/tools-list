@@ -180,9 +180,9 @@
                                 <p class="text-[10px] text-slate-300 font-bold uppercase">實點</p>
                                 <input type="number" value="${item.current}" 
                                     onchange="updateLocal(${item.id}, this.value)"
-                                    class="w-16 border-2 rounded-xl p-2 text-center font-black ${isShort ? 'border-red-200 text-red-600 bg-red-50' : 'border-slate-100 text-blue-600'} focus:border-blue-500 outline-none transition-all">
+                                    class="w-16 border-2 rounded-xl p-2 text-center font-black text-black outline-none transition-all ${isShort ? 'border-red-500 bg-white' : 'border-blue-500 bg-white'} focus:ring-2 focus:ring-slate-300">
                             </div>
-                            <div class="hidden print-only font-bold text-red-600 border-l pl-4">
+                            <div class="hidden print-only font-black text-black border-l-2 border-slate-300 pl-4 text-xl">
                                 實點: ${item.current}
                             </div>
                         </div>
@@ -260,4 +260,5 @@
     </script>
 </body>
 </html>
+
 
