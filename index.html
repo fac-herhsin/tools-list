@@ -20,10 +20,11 @@
         .tab-active { background-color: #2563eb; color: white; border-color: #2563eb; }
         .tab-summary { background-color: #f59e0b; color: white; border-color: #d97706; }
         
-        input::-webkit-outer-spin-button,
-        input::-webkit-inner-spin-button {
-            -webkit-appearance: none;
-            margin: 0;
+        /* 移除原本隱藏上下鍵的 CSS，讓電腦版使用者可以直接微調數字 */
+        input[type="number"] {
+            -webkit-appearance: auto;
+            -moz-appearance: auto;
+            appearance: auto;
         }
     </style>
 </head>
@@ -113,7 +114,6 @@
         // 強制轉換數值的函數，會自動過濾掉中文字
         function safeParseInt(val) {
             if (val === undefined || val === null) return 0;
-            // 如果是字串，過濾掉非數字字符
             const cleanVal = String(val).replace(/[^\d]/g, '');
             const parsed = parseInt(cleanVal, 10);
             return isNaN(parsed) ? 0 : parsed;
@@ -136,7 +136,6 @@
 
                 const data = await res.json();
                 
-                // 數據清洗：確保標準數量與實點數量都是純數字
                 inventory = data.inventory.map(item => {
                     const std = safeParseInt(item.standard);
                     const cur = safeParseInt(item.current);
@@ -270,14 +269,14 @@
                             <p class="text-[10px] text-blue-400 font-bold uppercase">實點</p>
                             <input type="number" value="${item.current}" 
                                 onchange="updateLocal(${item.id}, this.value)"
-                                class="w-12 md:w-16 border-2 rounded-xl py-1 text-center font-black outline-none no-print ${isErr ? 'border-orange-500 text-orange-600' : 'border-blue-500 text-blue-700'}">
+                                class="w-16 md:w-20 border-2 rounded-xl py-1 text-center font-black outline-none no-print ${isErr ? 'border-orange-500 text-orange-600' : 'border-blue-500 text-blue-700'}">
                             <span class="hidden print-only font-black text-xl">${item.current}</span>
                         </div>
                         <div class="text-center bg-slate-100/50 p-2 rounded-xl border border-dashed border-slate-200">
                             <p class="text-[10px] ${isShort ? 'text-red-500' : 'text-slate-400'} font-bold uppercase">應補</p>
                             <input type="number" value="${displayOrderQty}" 
                                 onchange="updateOrderQty(${item.id}, this.value)"
-                                class="w-12 md:w-14 bg-transparent text-center font-black outline-none no-print ${isShort ? 'text-red-600' : 'text-slate-400'}">
+                                class="w-16 md:w-20 bg-transparent text-center font-black outline-none no-print ${isShort ? 'text-red-600' : 'text-slate-400'}">
                             <span class="hidden print-only font-black text-lg ${isShort ? 'text-red-600' : ''}">${displayOrderQty}</span>
                         </div>
                     </div>
@@ -312,7 +311,7 @@
             try {
                 await postToScript({ action: "update", data: inventory });
                 await postToScript({ action: "log", user: user, event: `${currentTab} 盤點/請購存檔` });
-                alert("同步成功！數字格式已自動修正並存檔。");
+                alert("同步成功！");
                 localStorage.removeItem(CACHE_KEY); 
                 location.reload(); 
             } catch (err) {
