@@ -3,22 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>工具櫃雲端清點系統 PRO</title>
+    <title>工具櫃雲端清點系統 - 連線修正版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap');
         body { font-family: 'Noto Sans TC', sans-serif; background-color: #f8fafc; }
         
-        /* 列印專用樣式 */
         @media print {
-            body { background-color: white; }
             .no-print { display: none !important; }
             .print-only { display: block !important; }
-            .print-hide-item { display: none !important; }
-            .bg-red-50, .bg-emerald-50 { background-color: transparent !important; color: black !important; border-bottom: 1px solid #eee !important; }
-            .shadow-sm, .shadow-lg, .rounded-3xl { box-shadow: none !important; border-radius: 0 !important; }
+            body { background-color: white !important; }
+            .shadow-xl { box-shadow: none !important; border: 1px solid #eee !important; }
         }
+        .print-only { display: none; }
         .tab-active { background-color: #2563eb; color: white; border-color: #2563eb; }
         .tab-summary { background-color: #f59e0b; color: white; border-color: #d97706; }
     </style>
@@ -28,29 +26,30 @@
     <div class="max-w-7xl mx-auto px-4 py-8">
         <!-- 標頭 -->
         <header class="text-center mb-10 no-print">
-            <h1 class="text-3xl font-bold text-slate-800 tracking-tight">工具櫃雲端清點系統</h1>
-            <p class="text-slate-500 mt-2">即時同步數據至後端試算表</p>
+            <h1 class="text-3xl font-bold text-slate-800 flex items-center justify-center gap-3">
+                <i class="fa-solid fa-boxes-stacked text-blue-600"></i> 工具櫃雲端清點系統
+            </h1>
+            <p id="sync-status" class="text-slate-500 mt-2 text-sm font-medium">正在連線雲端資料庫...</p>
         </header>
 
-        <!-- 列印專用報表 -->
+        <!-- 列印標頭 -->
         <div class="hidden print-only text-center mb-8 border-b-2 border-black pb-4">
-            <h1 id="print-header" class="text-3xl font-bold">⚠️ 工具櫃盤點異常匯總報表</h1>
-            <p id="print-info" class="mt-2 text-xl font-bold text-slate-800"></p>
+            <h1 class="text-3xl font-bold">工具櫃盤點報表</h1>
+            <p id="print-info" class="mt-2 text-xl font-bold"></p>
             <p id="print-date" class="text-sm mt-1"></p>
         </div>
 
-        <!-- 區域分頁按鈕 -->
+        <!-- 區域分頁 -->
         <div id="tab-container" class="no-print flex justify-center flex-wrap gap-2 mb-8"></div>
 
         <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
             <!-- 左側：工具清單 -->
             <div class="lg:col-span-3 space-y-6">
                 <div class="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-                    <!-- 統計卡片 -->
                     <div class="p-6 border-b border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-50/50">
                         <div>
-                            <h2 id="current-tab-name" class="text-2xl font-bold text-slate-700">載入中...</h2>
-                            <p id="current-tab-desc" class="text-sm text-slate-400 mt-1 no-print"></p>
+                            <h2 id="current-tab-name" class="text-2xl font-bold text-slate-700 underline decoration-blue-500 underline-offset-8">載入中...</h2>
+                            <p class="text-sm text-slate-400 mt-2">最後同步: <span id="last-sync-time">--:--</span></p>
                         </div>
                         <div class="flex gap-8">
                             <div class="text-center">
@@ -64,24 +63,23 @@
                         </div>
                     </div>
 
-                    <!-- 工具動態列表 -->
-                    <div id="tool-list" class="divide-y divide-slate-100">
-                        <div class="p-20 text-center text-slate-400">正在連線雲端資料庫...</div>
+                    <div id="tool-list" class="divide-y divide-slate-100 min-h-[300px]">
+                        <div class="p-20 text-center text-slate-400">連線中，請稍候...</div>
                     </div>
 
-                    <!-- 底部操作區 -->
+                    <!-- 操作區 -->
                     <div class="p-6 bg-slate-50 border-t border-slate-100 space-y-4 no-print">
                         <div class="flex flex-col md:flex-row gap-4">
                             <div class="flex-1 relative">
-                                <i class="fa-solid fa-user absolute left-4 top-4 text-slate-300"></i>
-                                <input type="text" id="user-name" placeholder="輸入清點人員姓名" class="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 shadow-sm">
+                                <i class="fa-solid fa-user absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"></i>
+                                <input type="text" id="user-name" placeholder="輸入清點人員姓名" class="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 shadow-sm transition-all">
                             </div>
                             <div class="flex gap-2">
-                                <button onclick="saveData()" id="save-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition shadow-lg shadow-blue-200 flex items-center gap-2">
+                                <button onclick="saveData()" id="save-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl transition shadow-lg shadow-blue-200 flex items-center gap-2">
                                     <i class="fa-solid fa-cloud-arrow-up"></i> 存檔同步
                                 </button>
-                                <button onclick="printShortage()" class="bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-xl transition shadow-lg shadow-red-100 flex items-center gap-2">
-                                    <i class="fa-solid fa-print"></i> 列印報表
+                                <button onclick="window.print()" class="bg-slate-800 hover:bg-black text-white font-bold py-3 px-6 rounded-xl transition shadow-lg flex items-center gap-2">
+                                    <i class="fa-solid fa-print"></i>
                                 </button>
                             </div>
                         </div>
@@ -93,40 +91,80 @@
             <div class="lg:col-span-1 space-y-6 no-print">
                 <div class="bg-white rounded-3xl shadow-sm border border-slate-200 p-6">
                     <h3 class="font-bold text-slate-700 mb-6 flex items-center gap-2 text-lg">
-                        <i class="fa-solid fa-history text-blue-500"></i> 最近紀錄
+                        <i class="fa-solid fa-history text-blue-500"></i> 最近 10 筆紀錄
                     </h3>
-                    <div id="log-list" class="space-y-6"></div>
+                    <div id="log-list" class="space-y-6">
+                        <!-- JS 動態產生 -->
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
+        // 更新後的 Google Apps Script 網址
         const API_URL = "https://script.google.com/macros/s/AKfycbz6x9_Gyesh2iH5RsnKJ1CQiNmhBDdl1aNOh9jaAv1-FNobfYwCj3vs-1GQ6FxHdT_ZDw/exec"; 
+        const CACHE_KEY = "TOOL_SYS_LOCAL_DATA";
 
         let inventory = [];
         let logs = [];
         let currentTab = "";
         const SUMMARY_TAB = "異常匯總";
-        let manualPurchase = {}; 
 
+        // 1. 初始化讀取
         async function init() {
+            updateStatus("連線中...", "blue");
+            
+            // 讀取本地快取
+            const cached = localStorage.getItem(CACHE_KEY);
+            if (cached) {
+                try {
+                    inventory = JSON.parse(cached);
+                    renderEverything();
+                } catch(e) { console.error("Cache error", e); }
+            }
+
             try {
-                const res = await fetch(API_URL);
+                // 發送 GET 請求獲取最新資料
+                const res = await fetch(API_URL, {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' }
+                });
+
+                if (!res.ok) throw new Error(`連線失敗: ${res.status}`);
+
                 const data = await res.json();
                 inventory = data.inventory;
-                logs = data.logs;
+                logs = data.logs || [];
+                
+                localStorage.setItem(CACHE_KEY, JSON.stringify(inventory));
                 
                 const categories = [...new Set(inventory.map(item => item.category))];
-                if (categories.length > 0) {
-                    if (!currentTab) currentTab = categories[0];
-                    renderTabs(categories);
-                    renderTools();
-                    renderLogs();
-                }
+                if (!currentTab && categories.length > 0) currentTab = categories[0];
+                
+                renderEverything(categories);
+                updateStatus("雲端已同步", "emerald");
+                document.getElementById('last-sync-time').innerText = new Date().toLocaleTimeString();
             } catch (err) {
-                document.getElementById('tool-list').innerText = "連線失敗，請確認網址。";
+                console.error("Fetch error:", err);
+                updateStatus("同步失敗 (請檢查 Script 權限)", "red");
+                if (!inventory.length) {
+                    document.getElementById('tool-list').innerHTML = `<div class="p-20 text-center text-red-400">無法載入雲端資料。請確認 Script 部署是否設為「任何人」。<br><small class="text-xs">${err.message}</small></div>`;
+                }
             }
+        }
+
+        function updateStatus(text, color) {
+            const el = document.getElementById('sync-status');
+            el.innerText = text;
+            el.className = `text-sm font-bold mt-2 text-${color}-500`;
+        }
+
+        function renderEverything(categories) {
+            if(!categories) categories = [...new Set(inventory.map(item => item.category))];
+            renderTabs(categories);
+            renderTools();
+            renderLogs();
         }
 
         function renderTabs(categories) {
@@ -134,77 +172,23 @@
             const allTabs = [...categories, SUMMARY_TAB];
             container.innerHTML = allTabs.map(cat => {
                 let activeClass = currentTab === cat ? (cat === SUMMARY_TAB ? 'tab-summary' : 'tab-active') : 'bg-white text-slate-500 border-slate-100 hover:border-blue-200';
-                let icon = cat === SUMMARY_TAB ? '<i class="fa-solid fa-magnifying-glass-chart mr-2"></i>' : '';
-                return `
-                    <button onclick="switchTab('${cat}')" class="px-6 py-2 rounded-full font-bold transition-all border-2 ${activeClass}">
-                        ${icon}${cat}
-                    </button>
-                `;
+                return `<button onclick="switchTab('${cat}')" class="px-6 py-2 rounded-full font-bold transition-all border-2 ${activeClass}">${cat}</button>`;
             }).join('');
         }
 
         function switchTab(cat) {
             currentTab = cat;
-            const categories = [...new Set(inventory.map(item => item.category))];
-            renderTabs(categories);
-            renderTools();
+            renderEverything();
         }
 
-        const getNum = (val) => {
-            if (typeof val === 'number') return val;
-            const match = String(val).match(/\d+/);
-            return match ? parseInt(match[0]) : 0;
-        };
-
-        // 產生工具列 HTML
-        function generateToolRow(item) {
-            const sNum = getNum(item.standard);
-            const cNum = getNum(item.current);
-            const isShort = cNum < sNum;
-            const isSurplus = cNum > sNum;
-            
-            let statusColor = isShort ? 'bg-red-50' : (isSurplus ? 'bg-emerald-50' : 'hover:bg-slate-50 print-hide-item');
-            let statusText = isShort ? '<span class="text-red-500 font-bold text-xs">盤差(缺件)</span>' : (isSurplus ? '<span class="text-emerald-600 font-bold text-xs">盤盈(多件)</span>' : '');
-            let tagColor = isShort ? 'bg-red-100 text-red-600' : (isSurplus ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-200 text-slate-600');
-
-            let autoPurchase = Math.max(0, sNum - cNum);
-            let pNum = manualPurchase[item.id] !== undefined ? manualPurchase[item.id] : autoPurchase;
-
-            return `
-                <div class="tool-row flex items-center justify-between p-5 transition-all ${statusColor}">
-                    <div class="flex flex-col flex-1">
-                        <span class="font-bold text-slate-700">${item.name}</span>
-                        <div class="flex items-center gap-2 mt-1">
-                            <span class="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded uppercase font-bold">${item.category}</span>
-                            <span class="text-xs text-slate-400">ID: ${item.id}</span>
-                            ${statusText}
-                        </div>
-                    </div>
-                    
-                    <div class="flex items-center gap-4 md:gap-8">
-                        <div class="text-center w-12">
-                            <p class="text-[10px] text-slate-300 font-bold uppercase">標準</p>
-                            <p class="font-bold text-slate-900 text-lg">${item.standard}</p>
-                        </div>
-                        <div class="no-print text-center">
-                            <p class="text-[10px] text-slate-300 font-bold uppercase">實點</p>
-                            <input type="number" value="${item.current}" 
-                                onchange="updateLocal(${item.id}, this.value)"
-                                class="w-16 border-2 rounded-xl p-2 text-center font-black outline-none transition-all ${isShort ? 'border-red-500' : (isSurplus ? 'border-emerald-500' : 'border-blue-500')}">
-                        </div>
-                        <div class="text-center">
-                            <p class="text-[10px] text-orange-400 font-bold uppercase">請購</p>
-                            <input type="number" value="${pNum}" 
-                                onchange="updatePurchase(${item.id}, this.value)"
-                                class="w-16 border-2 border-orange-200 rounded-xl p-2 text-center font-black text-orange-600 bg-orange-50 outline-none no-print">
-                            <div class="hidden print-only font-black text-black text-2xl">${pNum}</div>
-                        </div>
-                        <div class="hidden print-only font-black text-black border-l-2 border-slate-300 pl-4 text-xl w-24">
-                            實: ${item.current}
-                        </div>
-                    </div>
-                </div>
-            `;
+        function updateLocal(id, val) {
+            const item = inventory.find(i => i.id == id);
+            if (item) {
+                item.current = parseInt(val) || 0;
+                localStorage.setItem(CACHE_KEY, JSON.stringify(inventory));
+                renderTools();
+                updateStatus("本地已修改 (尚未存檔)", "orange");
+            }
         }
 
         function renderTools() {
@@ -212,110 +196,111 @@
             let ok = 0, fail = 0;
             
             if (currentTab === SUMMARY_TAB) {
-                document.getElementById('current-tab-name').innerText = "異常匯總結果";
-                document.getElementById('current-tab-desc').innerText = "已將所有區域的「盤盈」與「盤差」項目進行分類。";
-
-                const shortageItems = inventory.filter(i => getNum(i.current) < getNum(i.standard));
-                const surplusItems = inventory.filter(i => getNum(i.current) > getNum(i.standard));
-                fail = shortageItems.length + surplusItems.length;
-                ok = inventory.length - fail;
-
-                let html = "";
+                document.getElementById('current-tab-name').innerText = "異常匯總清單";
+                const shortage = inventory.filter(i => (i.current || 0) < i.standard);
+                const surplus = inventory.filter(i => (i.current || 0) > i.standard);
                 
-                // 盤差區
-                html += `<div class="bg-red-50/50 p-4 border-b border-red-100 font-bold text-red-600 flex items-center gap-2">
-                            <i class="fa-solid fa-circle-minus"></i> 盤差區 (缺件待補：${shortageItems.length} 項)
-                         </div>`;
-                if(shortageItems.length === 0) {
-                    html += `<div class="p-8 text-center text-slate-400 text-sm">無缺件項目</div>`;
-                } else {
-                    html += shortageItems.map(generateToolRow).join('');
-                }
-
-                // 盤盈區
-                html += `<div class="bg-emerald-50/50 p-4 border-b border-emerald-100 font-bold text-emerald-600 flex items-center gap-2 mt-4">
-                            <i class="fa-solid fa-circle-plus"></i> 盤盈區 (多出工具：${surplusItems.length} 項)
-                         </div>`;
-                if(surplusItems.length === 0) {
-                    html += `<div class="p-8 text-center text-slate-400 text-sm">無多出項目</div>`;
-                } else {
-                    html += surplusItems.map(generateToolRow).join('');
-                }
-
+                let html = `<div class="p-4 bg-red-50 text-red-600 font-bold border-b flex items-center gap-2"><i class="fa-solid fa-triangle-exclamation"></i> 盤差 (缺件項目)</div>`;
+                html += shortage.length ? shortage.map(i => generateRow(i)).join('') : `<div class="p-10 text-center text-slate-400">目前無缺件</div>`;
+                
+                html += `<div class="p-4 bg-emerald-50 text-emerald-600 font-bold border-b mt-4 flex items-center gap-2"><i class="fa-solid fa-circle-plus"></i> 盤盈 (多出項目)</div>`;
+                html += surplus.length ? surplus.map(i => generateRow(i)).join('') : `<div class="p-10 text-center text-slate-400">目前無多出項目</div>`;
+                
                 container.innerHTML = html;
+                fail = shortage.length + surplus.length;
+                ok = inventory.length - fail;
             } else {
                 document.getElementById('current-tab-name').innerText = currentTab;
-                document.getElementById('current-tab-desc').innerText = "輸入實點數量，系統自動計算異常狀態。";
-                
                 const items = inventory.filter(i => i.category === currentTab);
-                items.forEach(i => { if (getNum(i.current) !== getNum(i.standard)) fail++; else ok++; });
-                container.innerHTML = items.map(generateToolRow).join('');
+                container.innerHTML = items.length ? items.map(i => {
+                    if ((i.current || 0) != i.standard) fail++; else ok++;
+                    return generateRow(i);
+                }).join('') : '<div class="p-20 text-center text-slate-400">此區域無資料</div>';
             }
 
             document.getElementById('stat-ok').innerText = ok;
             document.getElementById('stat-fail').innerText = fail;
         }
 
-        function updateLocal(id, val) {
-            const item = inventory.find(i => i.id == id);
-            if (item) {
-                item.current = parseInt(val) || 0;
-                renderTools();
-            }
-        }
-
-        function updatePurchase(id, val) {
-            manualPurchase[id] = parseInt(val) || 0;
-            renderTools();
+        function generateRow(item) {
+            const isErr = (item.current || 0) != item.standard;
+            const isShort = (item.current || 0) < item.standard;
+            return `
+                <div class="flex items-center justify-between p-5 transition-all ${isErr ? (isShort ? 'bg-red-50/50' : 'bg-emerald-50/30') : 'hover:bg-slate-50'}">
+                    <div class="flex flex-col">
+                        <span class="font-bold text-slate-700">${item.name}</span>
+                        <div class="flex items-center gap-2 mt-1">
+                            <span class="text-[10px] bg-slate-200 text-slate-500 px-2 py-0.5 rounded font-bold uppercase tracking-tighter">${item.category}</span>
+                            <span class="text-[10px] text-slate-400 font-mono">ID: ${item.id}</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-6">
+                        <div class="text-center">
+                            <p class="text-[10px] text-slate-300 font-bold uppercase">標配</p>
+                            <p class="font-bold text-slate-500">${item.standard}</p>
+                        </div>
+                        <div class="text-center">
+                            <p class="text-[10px] text-blue-400 font-bold uppercase">實點</p>
+                            <input type="number" value="${item.current || 0}" 
+                                onchange="updateLocal(${item.id}, this.value)"
+                                class="w-16 border-2 rounded-xl py-1 text-center font-black outline-none no-print ${isErr ? 'border-orange-500 text-orange-600' : 'border-blue-500 text-blue-700'}">
+                            <span class="hidden print-only font-black text-xl">${item.current || 0}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
         }
 
         function renderLogs() {
             const container = document.getElementById('log-list');
-            if (!logs || logs.length === 0) {
-                container.innerHTML = '<p class="text-slate-400 text-sm text-center">尚無紀錄</p>';
+            if(!logs || logs.length === 0) {
+                container.innerHTML = '<p class="text-slate-400 text-center py-10">尚無雲端紀錄</p>';
                 return;
             }
             container.innerHTML = logs.map(log => `
                 <div class="relative pl-6 border-l-2 border-slate-100 pb-2">
                     <div class="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-blue-500 border-4 border-white"></div>
-                    <p class="text-xs text-slate-400">${new Date(log[0]).toLocaleString()}</p>
-                    <p class="text-sm font-bold text-slate-700 mt-1">${log[2]}</p>
-                    <p class="text-xs text-blue-600 mt-1">${log[1]}</p>
+                    <p class="text-[10px] text-slate-400">${log[0] ? new Date(log[0]).toLocaleString() : '未知時間'}</p>
+                    <p class="text-sm font-bold text-slate-700 mt-1">${log[1] || '系統'}</p>
+                    <p class="text-xs text-blue-600 mt-1">${log[2] || '事件'}</p>
                 </div>
             `).join('');
         }
 
+        // 2. 存檔同步
         async function saveData() {
             const user = document.getElementById('user-name').value.trim();
-            if (!user) return alert("請先輸入清點人員姓名。");
+            if (!user) return alert("請輸入清點人員姓名。");
+            
             const btn = document.getElementById('save-btn');
             btn.disabled = true;
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 同步中...';
 
             try {
-                const dataToSave = currentTab === SUMMARY_TAB ? inventory : inventory.filter(i => i.category === currentTab);
-                await fetch(API_URL, { method: "POST", body: JSON.stringify({ action: "update", data: dataToSave }) });
-                await fetch(API_URL, { method: "POST", body: JSON.stringify({ action: "log", user: user, event: currentTab + " 盤點更新" }) });
-                alert("數據已同步雲端！");
-                location.reload();
+                // 發送 POST 更新數量
+                await postToScript({ action: "update", data: inventory });
+                // 發送 POST 紀錄日誌
+                await postToScript({ action: "log", user: user, event: `${currentTab} 盤點存檔` });
+
+                alert("同步成功！資料已存入雲端。");
+                localStorage.removeItem(CACHE_KEY); 
+                location.reload(); 
             } catch (err) {
-                alert("儲存失敗");
+                console.error("Save error:", err);
+                alert("存檔失敗！請檢查 Script 網址或部署權限。");
                 btn.disabled = false;
-                btn.innerText = "存檔同步";
+                btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> 存檔同步';
             }
         }
 
-        function printShortage() {
-            const user = document.getElementById('user-name').value.trim() || "現場人員";
-            if (currentTab === SUMMARY_TAB) {
-                document.getElementById('print-header').innerText = "📊 全區域盤點異常(盤盈/盤差)匯總表";
-                document.getElementById('print-info').innerText = `跨區域彙整結果 | 負責人：${user}`;
-            } else {
-                document.getElementById('print-header').innerText = `📋 ${currentTab} 工具盤點報表`;
-                document.getElementById('print-info').innerText = `區域：${currentTab} | 負責人：${user}`;
-            }
-            document.getElementById('print-date').innerText = "報表生成時間：" + new Date().toLocaleString();
-            window.print();
+        async function postToScript(payload) {
+            // Google Script POST 回應不帶 CORS，使用 no-cors 以確保請求能送出
+            return fetch(API_URL, {
+                method: "POST",
+                mode: 'no-cors', 
+                headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify(payload)
+            });
         }
 
         window.onload = init;
