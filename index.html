@@ -3,86 +3,94 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>工具櫃雲端清點系統 - 連線修正版</title>
+    <title>工具櫃雲端清點系統 - 持久化存儲版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap');
-        body { font-family: 'Noto Sans TC', sans-serif; background-color: #f8fafc; }
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
+        body { font-family: 'Noto Sans TC', sans-serif; background-color: #f1f5f9; }
+        .tab-active { background-color: #2563eb; color: white; border-color: #2563eb; }
+        .tab-summary { background-color: #f59e0b; color: white; border-color: #d97706; }
+        
+        /* 載入動畫 */
+        .loader { border-top-color: #3498db; animation: spinner 1.5s linear infinite; }
+        @keyframes spinner { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
         @media print {
             .no-print { display: none !important; }
             .print-only { display: block !important; }
-            body { background-color: white !important; }
-            .shadow-xl { box-shadow: none !important; border: 1px solid #eee !important; }
+            body { background-color: white; }
         }
-        .print-only { display: none; }
-        .tab-active { background-color: #2563eb; color: white; border-color: #2563eb; }
-        .tab-summary { background-color: #f59e0b; color: white; border-color: #d97706; }
-        
-        /* 移除原本隱藏上下鍵的 CSS，讓電腦版使用者可以直接微調數字 */
-        input[type="number"] {
-            -webkit-appearance: auto;
-            -moz-appearance: auto;
-            appearance: auto;
+
+        /* 加大輸入框箭頭 */
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            opacity: 1;
+            height: 30px;
         }
     </style>
 </head>
-<body class="min-h-screen pb-10">
+<body class="min-h-screen">
 
-    <div class="max-w-7xl mx-auto px-4 py-8">
-        <!-- 標頭 -->
-        <header class="text-center mb-10 no-print">
-            <h1 class="text-3xl font-bold text-slate-800 flex items-center justify-center gap-3">
-                <i class="fa-solid fa-boxes-stacked text-blue-600"></i> 工具櫃雲端清點系統
-            </h1>
-            <p id="sync-status" class="text-slate-500 mt-2 text-sm font-medium">正在連線雲端資料庫...</p>
-        </header>
-
-        <!-- 列印標頭 -->
-        <div class="hidden print-only text-center mb-8 border-b-2 border-black pb-4">
-            <h1 class="text-3xl font-bold">工具櫃盤點報表 (異常彙整)</h1>
-            <p id="print-date" class="text-sm mt-1"></p>
+    <!-- 頂部導覽列 -->
+    <nav class="bg-white shadow-sm border-b no-print sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <div class="bg-blue-600 p-2 rounded-lg text-white">
+                    <i class="fa-solid fa-toolbox"></i>
+                </div>
+                <h1 class="text-xl font-bold text-slate-800 tracking-tight">工具櫃管理系統</h1>
+            </div>
+            <div id="sync-status" class="text-xs font-medium text-slate-400 flex items-center gap-2">
+                <i class="fa-solid fa-cloud-check text-emerald-500"></i> 雲端已同步
+            </div>
         </div>
+    </nav>
 
-        <!-- 區域分頁 -->
-        <div id="tab-container" class="no-print flex justify-center flex-wrap gap-2 mb-8"></div>
+    <main class="max-w-7xl mx-auto px-4 py-8">
+        <!-- 頁面區域選擇 -->
+        <div id="tab-container" class="no-print flex flex-wrap gap-2 mb-8 justify-center"></div>
 
         <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
-            <div class="lg:col-span-3 space-y-6">
-                <div class="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div class="p-6 border-b border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-50/50">
+            <!-- 工具列表 -->
+            <div class="lg:col-span-3">
+                <div class="bg-white rounded-2xl shadow-sm border overflow-hidden">
+                    <div class="p-6 bg-slate-50 border-b flex justify-between items-end">
                         <div>
-                            <h2 id="current-tab-name" class="text-2xl font-bold text-slate-700 underline decoration-blue-500 underline-offset-8">載入中...</h2>
-                            <p class="text-sm text-slate-400 mt-2">最後同步: <span id="last-sync-time">--:--</span></p>
+                            <h2 id="current-tab-name" class="text-2xl font-black text-slate-800 tracking-tighter">載入中...</h2>
+                            <p class="text-sm text-slate-500 mt-1 font-medium">最後同步時間: <span id="last-sync-time" class="font-mono text-blue-600">--:--</span></p>
                         </div>
-                        <div class="flex gap-8">
+                        <div class="flex gap-6">
                             <div class="text-center">
-                                <p class="text-xs text-slate-400 font-bold uppercase tracking-wider">齊全</p>
-                                <p id="stat-ok" class="text-2xl font-bold text-green-500">0</p>
+                                <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">正常項目</p>
+                                <p id="stat-ok" class="text-2xl font-black text-emerald-500">0</p>
                             </div>
                             <div class="text-center">
-                                <p class="text-xs text-slate-400 font-bold uppercase tracking-wider">異常項目</p>
-                                <p id="stat-fail" class="text-2xl font-bold text-red-500">0</p>
+                                <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">異常項目</p>
+                                <p id="stat-fail" class="text-2xl font-black text-red-500">0</p>
                             </div>
                         </div>
                     </div>
 
-                    <div id="tool-list" class="divide-y divide-slate-100 min-h-[300px]">
-                        <div class="p-20 text-center text-slate-400">連線中，請稍候...</div>
+                    <div id="tool-list" class="divide-y divide-slate-100 min-h-[400px]">
+                        <!-- 工具會在這裡顯示 -->
                     </div>
 
-                    <div class="p-6 bg-slate-50 border-t border-slate-100 space-y-4 no-print">
+                    <div id="summary-notice" class="hidden p-4 bg-amber-50 border-t border-amber-100 text-amber-700 text-xs font-bold text-center no-print">
+                        <i class="fa-solid fa-circle-info mr-1"></i> 異常匯總模式下僅供檢視。如需修改實點數量，請切換至該工具所屬區域頁面。
+                    </div>
+
+                    <div class="p-6 bg-slate-50 border-t space-y-4 no-print">
                         <div class="flex flex-col md:flex-row gap-4">
                             <div class="flex-1 relative">
                                 <i class="fa-solid fa-user absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"></i>
-                                <input type="text" id="user-name" placeholder="輸入清點人員姓名" class="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 shadow-sm transition-all">
+                                <input type="text" id="user-name" placeholder="清點人員姓名" class="w-full pl-10 pr-4 py-4 border rounded-2xl outline-none focus:ring-4 focus:ring-blue-100 transition-all font-bold text-lg">
                             </div>
                             <div class="flex gap-2">
-                                <button onclick="saveData()" id="save-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl transition shadow-lg shadow-blue-200 flex items-center gap-2">
-                                    <i class="fa-solid fa-cloud-arrow-up"></i> 存檔同步
+                                <button onclick="saveData()" id="save-btn" class="flex-1 md:flex-none bg-blue-600 hover:bg-blue-700 text-white font-black py-4 px-10 rounded-2xl transition shadow-lg shadow-blue-200 flex items-center justify-center gap-2">
+                                    <i class="fa-solid fa-cloud-arrow-up text-xl"></i> 同步存檔
                                 </button>
-                                <button onclick="window.print()" class="bg-slate-800 hover:bg-black text-white font-bold py-3 px-6 rounded-xl transition shadow-lg flex items-center gap-2">
+                                <button onclick="window.print()" class="bg-white hover:bg-slate-100 text-slate-700 font-bold py-4 px-6 rounded-2xl transition border border-slate-200">
                                     <i class="fa-solid fa-print"></i>
                                 </button>
                             </div>
@@ -91,84 +99,76 @@
                 </div>
             </div>
 
-            <div class="lg:col-span-1 space-y-6 no-print">
-                <div class="bg-white rounded-3xl shadow-sm border border-slate-200 p-6">
-                    <h3 class="font-bold text-slate-700 mb-6 flex items-center gap-2 text-lg">
-                        <i class="fa-solid fa-history text-blue-500"></i> 最近 10 筆紀錄
+            <!-- 歷史紀錄 (側邊欄) -->
+            <div class="lg:col-span-1 no-print">
+                <div class="bg-white rounded-2xl shadow-sm border p-6 sticky top-24">
+                    <h3 class="font-bold text-slate-800 mb-6 flex items-center gap-2 text-lg">
+                        <i class="fa-solid fa-clock-rotate-left text-blue-500"></i> 最近清點紀錄
                     </h3>
-                    <div id="log-list" class="space-y-6"></div>
+                    <div id="log-list" class="space-y-4 max-h-[600px] overflow-y-auto pr-2">
+                        <div class="flex flex-col items-center justify-center py-8 text-slate-300">
+                            <i class="fa-solid fa-spinner fa-spin text-2xl mb-2"></i>
+                            <span class="text-xs">讀取紀錄中...</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
+    </main>
 
     <script>
         const API_URL = "https://script.google.com/macros/s/AKfycbz6x9_Gyesh2iH5RsnKJ1CQiNmhBDdl1aNOh9jaAv1-FNobfYwCj3vs-1GQ6FxHdT_ZDw/exec"; 
-        const CACHE_KEY = "TOOL_SYS_LOCAL_DATA";
+        const CACHE_KEY = "TOOL_INVENTORY_CACHE";
 
         let inventory = [];
         let logs = [];
         let currentTab = "";
         const SUMMARY_TAB = "異常匯總";
 
-        // 強制轉換數值的函數，會自動過濾掉中文字
-        function safeParseInt(val) {
-            if (val === undefined || val === null) return 0;
-            const cleanVal = String(val).replace(/[^\d]/g, '');
-            const parsed = parseInt(cleanVal, 10);
-            return isNaN(parsed) ? 0 : parsed;
-        }
-
+        // 初始化
         async function init() {
-            updateStatus("連線中...", "blue");
+            setSyncStatus("loading", "正在連線雲端...");
             
+            // 先嘗試從快照讀取
             const cached = localStorage.getItem(CACHE_KEY);
-            if (cached) {
-                try {
-                    inventory = JSON.parse(cached);
-                    renderEverything();
-                } catch(e) { console.error("Cache error", e); }
+            if(cached) {
+                inventory = JSON.parse(cached);
+                const categories = [...new Set(inventory.map(item => item.category))];
+                if (!currentTab) currentTab = categories[0];
+                renderUI(categories);
             }
 
             try {
-                const res = await fetch(API_URL, { method: 'GET', headers: { 'Accept': 'application/json' } });
-                if (!res.ok) throw new Error(`連線失敗: ${res.status}`);
-
+                // 正式從 API 取得資料
+                const res = await fetch(API_URL);
                 const data = await res.json();
                 
-                inventory = data.inventory.map(item => {
-                    const std = safeParseInt(item.standard);
-                    const cur = safeParseInt(item.current);
-                    return {
-                        ...item,
-                        standard: std,
-                        current: cur,
-                        order_qty: item.order_qty !== undefined ? safeParseInt(item.order_qty) : Math.max(0, std - cur)
-                    };
-                });
+                inventory = data.inventory;
+                logs = data.logs; // 確保取得 logs
                 
-                logs = data.logs || [];
                 localStorage.setItem(CACHE_KEY, JSON.stringify(inventory));
                 
                 const categories = [...new Set(inventory.map(item => item.category))];
-                if (!currentTab && categories.length > 0) currentTab = categories[0];
+                if (!currentTab || currentTab === "載入中...") currentTab = categories[0];
                 
-                renderEverything(categories);
-                updateStatus("雲端已同步", "emerald");
+                renderUI(categories);
+                setSyncStatus("success", "已與雲端同步");
                 document.getElementById('last-sync-time').innerText = new Date().toLocaleTimeString();
             } catch (err) {
-                console.error("Fetch error:", err);
-                updateStatus("同步失敗", "red");
+                console.error(err);
+                setSyncStatus("error", "連線失敗，目前為離線模式");
+                // 離線時嘗試渲染歷史，如果本地有存
+                renderLogs();
             }
         }
 
-        function updateStatus(text, color) {
-            const el = document.getElementById('sync-status');
-            el.innerText = text;
-            el.className = `text-sm font-bold mt-2 text-${color}-500`;
+        function setSyncStatus(type, text) {
+            const statusEl = document.getElementById('sync-status');
+            statusEl.innerText = text;
+            statusEl.className = `text-xs font-bold flex items-center gap-2 ${type === 'loading' ? 'text-blue-500' : type === 'error' ? 'text-red-500' : 'text-emerald-500'}`;
         }
 
-        function renderEverything(categories) {
+        function renderUI(categories) {
             if(!categories) categories = [...new Set(inventory.map(item => item.category))];
             renderTabs(categories);
             renderTools();
@@ -179,151 +179,155 @@
             const container = document.getElementById('tab-container');
             const allTabs = [...categories, SUMMARY_TAB];
             container.innerHTML = allTabs.map(cat => {
-                let activeClass = currentTab === cat ? (cat === SUMMARY_TAB ? 'tab-summary' : 'tab-active') : 'bg-white text-slate-500 border-slate-100 hover:border-blue-200';
-                return `<button onclick="switchTab('${cat}')" class="px-6 py-2 rounded-full font-bold transition-all border-2 ${activeClass}">${cat}</button>`;
+                let activeClass = currentTab === cat ? (cat === SUMMARY_TAB ? 'tab-summary' : 'tab-active') : 'bg-white text-slate-500 border-white hover:border-blue-200 shadow-sm';
+                return `<button onclick="switchTab('${cat}')" class="px-6 py-2 rounded-xl font-black transition-all border-2 ${activeClass}">${cat}</button>`;
             }).join('');
         }
 
         function switchTab(cat) {
             currentTab = cat;
-            renderEverything();
+            renderUI();
         }
 
-        function updateLocal(id, val) {
+        function updateLocalValue(id, newVal) {
             const item = inventory.find(i => i.id == id);
             if (item) {
-                item.current = safeParseInt(val);
-                item.order_qty = Math.max(0, item.standard - item.current);
-                saveToCacheAndRefresh();
+                item.current = parseInt(newVal) || 0;
+                localStorage.setItem(CACHE_KEY, JSON.stringify(inventory));
+                renderTools();
+                setSyncStatus("error", "有變更尚未同步");
             }
-        }
-
-        function updateOrderQty(id, val) {
-            const item = inventory.find(i => i.id == id);
-            if (item) {
-                item.order_qty = safeParseInt(val);
-                saveToCacheAndRefresh();
-            }
-        }
-
-        function saveToCacheAndRefresh() {
-            localStorage.setItem(CACHE_KEY, JSON.stringify(inventory));
-            renderTools();
-            updateStatus("本地已修改 (尚未存檔)", "orange");
         }
 
         function renderTools() {
             const container = document.getElementById('tool-list');
+            const notice = document.getElementById('summary-notice');
             let ok = 0, fail = 0;
-            
+
             if (currentTab === SUMMARY_TAB) {
-                document.getElementById('current-tab-name').innerText = "異常匯總 / 採購需求調整";
-                const shortage = inventory.filter(i => i.current < i.standard);
-                const surplus = inventory.filter(i => i.current > i.standard);
+                notice.classList.remove('hidden');
+                document.getElementById('current-tab-name').innerText = "異常匯總報告";
+                const shortages = inventory.filter(i => (i.current || 0) < i.standard);
+                const surpluses = inventory.filter(i => (i.current || 0) > i.standard);
                 
-                let html = `<div class="p-4 bg-red-50 text-red-600 font-bold border-b flex justify-between items-center">
-                                <span class="flex items-center gap-2"><i class="fa-solid fa-triangle-exclamation"></i> 盤差 (缺件應補)</span>
-                            </div>`;
-                html += shortage.length ? shortage.map(i => generateRow(i, true)).join('') : `<div class="p-10 text-center text-slate-400">目前無缺件</div>`;
+                let html = '<div class="p-4 bg-red-50 text-red-600 font-black border-b flex items-center gap-2"><i class="fa-solid fa-circle-minus"></i> 盤差 (缺件項目)</div>';
+                html += shortages.length ? shortages.map(i => generateRow(i, true, true)).join('') : '<div class="p-8 text-center text-slate-400 text-sm">目前無缺件項目</div>';
                 
-                html += `<div class="p-4 bg-emerald-50 text-emerald-600 font-bold border-b mt-4 flex items-center gap-2"><i class="fa-solid fa-circle-plus"></i> 盤盈 (多出項目)</div>`;
-                html += surplus.length ? surplus.map(i => generateRow(i)).join('') : `<div class="p-10 text-center text-slate-400">目前無多出項目</div>`;
+                html += '<div class="p-4 bg-emerald-50 text-emerald-600 font-black border-b mt-4 flex items-center gap-2"><i class="fa-solid fa-circle-plus"></i> 盤盈 (多件項目)</div>';
+                html += surpluses.length ? surpluses.map(i => generateRow(i, true, true)).join('') : '<div class="p-8 text-center text-slate-400 text-sm">目前無多件項目</div>';
                 
                 container.innerHTML = html;
-                fail = shortage.length + surplus.length;
+                fail = shortages.length + surpluses.length;
                 ok = inventory.length - fail;
             } else {
+                notice.classList.add('hidden');
                 document.getElementById('current-tab-name').innerText = currentTab;
-                const items = inventory.filter(i => i.category === currentTab);
-                container.innerHTML = items.length ? items.map(i => {
+                const displayItems = inventory.filter(i => i.category === currentTab);
+                container.innerHTML = displayItems.map(i => {
                     if (i.current != i.standard) fail++; else ok++;
-                    return generateRow(i);
-                }).join('') : '<div class="p-20 text-center text-slate-400">此區域無資料</div>';
+                    return generateRow(i, false, false);
+                }).join('');
             }
-
+            
             document.getElementById('stat-ok').innerText = ok;
             document.getElementById('stat-fail').innerText = fail;
         }
 
-        function generateRow(item, isSummaryMode = false) {
+        function generateRow(item, showCategory, isReadOnly) {
             const isErr = item.current != item.standard;
-            const isShort = item.current < item.standard;
-            const displayOrderQty = item.order_qty;
-
+            const diff = (item.current || 0) - item.standard;
+            
             return `
-                <div class="flex items-center justify-between p-5 transition-all ${isErr ? (isShort ? 'bg-red-50/50' : 'bg-emerald-50/30') : 'hover:bg-slate-50'}">
-                    <div class="flex flex-col flex-1 min-w-0">
-                        <span class="font-bold text-slate-700 truncate">${item.name}</span>
-                        <div class="flex items-center gap-2 mt-1">
-                            <span class="text-[10px] bg-slate-200 text-slate-500 px-2 py-0.5 rounded font-bold uppercase tracking-tighter">${item.category}</span>
-                            <span class="text-[10px] text-slate-400 font-mono">ID: ${item.id}</span>
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between p-5 ${isErr ? 'bg-orange-50/40' : 'hover:bg-slate-50'} transition-colors border-b last:border-0">
+                    <div class="flex-1 min-w-0 mb-4 sm:mb-0">
+                        <div class="flex items-center gap-2">
+                            <span class="font-black text-slate-800 text-xl tracking-tight truncate">${item.name}</span>
+                            <span class="text-xs text-slate-400 font-bold bg-slate-100 px-2 py-0.5 rounded">/ ${item.unit || '個'}</span>
+                        </div>
+                        <div class="flex flex-wrap gap-x-4 mt-1.5">
+                            <p class="text-[11px] text-slate-400 font-bold">編號: <span class="text-slate-600 font-mono">${item.id}</span></p>
+                            ${showCategory ? `<p class="text-[11px] text-slate-400 font-bold">區域: <span class="text-blue-600">${item.category}</span></p>` : ''}
                         </div>
                     </div>
-                    
-                    <div class="flex items-center gap-3 md:gap-6">
-                        <div class="text-center">
-                            <p class="text-[10px] text-slate-300 font-bold uppercase">標配</p>
-                            <p class="font-bold text-slate-500">${item.standard}</p>
+
+                    <div class="flex items-center gap-6 w-full sm:w-auto justify-between sm:justify-end">
+                        <!-- 標準數量 (左) -->
+                        <div class="text-center min-w-[70px]">
+                            <p class="text-[10px] text-slate-400 font-black uppercase mb-0.5">標配</p>
+                            <p class="text-2xl font-black text-black tracking-tighter">${item.standard}</p>
                         </div>
+
+                        <!-- 實點輸入 (中) -->
                         <div class="text-center">
-                            <p class="text-[10px] text-blue-400 font-bold uppercase">實點</p>
-                            <input type="number" value="${item.current}" 
-                                onchange="updateLocal(${item.id}, this.value)"
-                                class="w-16 md:w-20 border-2 rounded-xl py-1 text-center font-black outline-none no-print ${isErr ? 'border-orange-500 text-orange-600' : 'border-blue-500 text-blue-700'}">
-                            <span class="hidden print-only font-black text-xl">${item.current}</span>
+                            <p class="text-[10px] ${isReadOnly ? 'text-slate-400' : 'text-blue-500'} font-black uppercase mb-1">實點數量</p>
+                            <input type="number" value="${item.current || 0}" 
+                                ${isReadOnly ? 'readonly' : ''}
+                                onchange="updateLocalValue(${item.id}, this.value)"
+                                class="w-20 border-2 rounded-xl py-2.5 text-center font-black text-2xl outline-none transition-all ${isReadOnly ? 'bg-slate-50 border-slate-100 text-slate-400 cursor-not-allowed' : (isErr ? 'border-orange-500 text-orange-600 bg-orange-50 focus:ring-4 focus:ring-orange-100' : 'border-slate-200 text-blue-600 focus:ring-4 focus:ring-blue-100')}">
                         </div>
-                        <div class="text-center bg-slate-100/50 p-2 rounded-xl border border-dashed border-slate-200">
-                            <p class="text-[10px] ${isShort ? 'text-red-500' : 'text-slate-400'} font-bold uppercase">應補</p>
-                            <input type="number" value="${displayOrderQty}" 
-                                onchange="updateOrderQty(${item.id}, this.value)"
-                                class="w-16 md:w-20 bg-transparent text-center font-black outline-none no-print ${isShort ? 'text-red-600' : 'text-slate-400'}">
-                            <span class="hidden print-only font-black text-lg ${isShort ? 'text-red-600' : ''}">${displayOrderQty}</span>
+
+                        <!-- 盤點差 (右) -->
+                        <div class="text-center min-w-[70px]">
+                            <p class="text-[10px] text-slate-400 font-black uppercase mb-0.5">盤點差</p>
+                            <div class="text-2xl font-black tracking-tighter ${diff === 0 ? 'text-slate-200' : (diff < 0 ? 'text-red-500' : 'text-emerald-500')}">
+                                ${diff > 0 ? '+' : ''}${diff}
+                            </div>
                         </div>
                     </div>
                 </div>
             `;
         }
 
-        function renderLogs() {
-            const container = document.getElementById('log-list');
-            if(!logs || logs.length === 0) {
-                container.innerHTML = '<p class="text-slate-400 text-center py-10">尚無雲端紀錄</p>';
-                return;
-            }
-            container.innerHTML = logs.map(log => `
-                <div class="relative pl-6 border-l-2 border-slate-100 pb-2">
-                    <div class="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-blue-500 border-4 border-white"></div>
-                    <p class="text-[10px] text-slate-400">${log[0] ? new Date(log[0]).toLocaleString() : '未知時間'}</p>
-                    <p class="text-sm font-bold text-slate-700 mt-1">${log[1] || '系統'}</p>
-                    <p class="text-xs text-blue-600 mt-1">${log[2] || '事件'}</p>
-                </div>
-            `).join('');
-        }
-
         async function saveData() {
             const user = document.getElementById('user-name').value.trim();
-            if (!user) return alert("請輸入清點人員姓名。");
+            if (!user) return alert("請輸入您的姓名再進行同步。");
             
             const btn = document.getElementById('save-btn');
+            const originalContent = btn.innerHTML;
             btn.disabled = true;
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 同步中...';
 
             try {
-                await postToScript({ action: "update", data: inventory });
-                await postToScript({ action: "log", user: user, event: `${currentTab} 盤點/請購存檔` });
-                alert("同步成功！");
+                // 發送更新數據
+                await fetch(API_URL, { method: "POST", body: JSON.stringify({ action: "update", data: inventory }) });
+                // 發送日誌紀錄
+                await fetch(API_URL, { method: "POST", body: JSON.stringify({ action: "log", user: user, event: "清點資料存檔" }) });
+                
+                alert("存檔成功！資料已同步至雲端試算表。");
                 localStorage.removeItem(CACHE_KEY); 
-                location.reload(); 
+                location.reload();
             } catch (err) {
-                console.error("Save error:", err);
-                alert("存檔失敗！");
+                alert("連線失敗，請檢查網路。");
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> 存檔同步';
+                btn.innerHTML = originalContent;
             }
         }
 
-        async function postToScript(payload) {
-            return fetch(API_URL, { method: "POST", mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(payload) });
+        function renderLogs() {
+            const container = document.getElementById('log-list');
+            if(!logs || logs.length === 0) {
+                container.innerHTML = '<div class="text-center text-slate-400 text-sm py-8 italic font-medium">尚無歷史紀錄</div>';
+                return;
+            }
+            
+            container.innerHTML = logs.map(log => {
+                const date = new Date(log[0]);
+                const timeStr = isNaN(date.getTime()) ? log[0] : date.toLocaleString('zh-TW', {hour12:false});
+                const event = log[1];
+                const userName = log[2];
+
+                return `
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-100 mb-3 last:mb-0 hover:border-blue-200 transition-colors">
+                    <p class="text-[10px] text-slate-400 font-bold font-mono">${timeStr}</p>
+                    <p class="text-sm font-black text-slate-700 mt-1">${event}</p>
+                    <div class="flex items-center justify-between mt-2">
+                        <span class="text-xs text-blue-500 font-bold flex items-center gap-1">
+                            <i class="fa-solid fa-user-check"></i> ${userName}
+                        </span>
+                    </div>
+                </div>
+                `;
+            }).join('');
         }
 
         window.onload = init;
